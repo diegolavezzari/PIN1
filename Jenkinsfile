@@ -1,37 +1,48 @@
 pipeline {
-  agent any
+    agent any
 
-  options {
-    timeout(time: 2, unit: 'MINUTES')
-  }
+    options {
+        timeout(time: 2, unit: 'MINUTES')
+    }
 
-  environment {
-    ARTIFACT_ID = "elbuo8/webapp:${env.BUILD_NUMBER}"
-  }
-   stages {
-   stage('Building image') {
-      steps{
-          sh '''
-          cd webapp
-          docker build -t testapp .
-             '''  
-        }
+    environment {
+        ARTIFACT_ID = "dlavezzari/webapp:${env.BUILD_NUMBER}"
     }
-  
-  
-    stage('Run tests') {
-      steps {
-        sh "docker run testapp npm test"
-      }
-    }
-   stage('Deploy Image') {
-      steps{
-        sh '''
-        docker tag testapp 127.0.0.1:5000/mguazzardo/testapp
-        docker push 127.0.0.1:5000/mguazzardo/testapp   
-        '''
+
+    stages {
+        stage('Building image') {
+            steps {
+                script {
+                    // Autenticarse en Docker Hub usando las credenciales configuradas
+                    docker.withRegistry('https://index.docker.io/v1/', 'docker-hub-pipe') {
+                        sh '''
+                        docker build -t testapp .
+                        '''
+                    }
+                }
+            }
         }
-      }
+
+        stage('Run tests') {
+            steps {
+                sh "docker run testapp npm test"
+            }
+        }
+
+        stage('Deploy Image') {
+            steps {
+                script {
+                    // Definir la variable BUILD_NUMBER
+                    def buildNumber = env.BUILD_NUMBER
+                    docker.withRegistry('https://index.docker.io/v1/', 'docker-hub-pipe') {
+                        sh """
+                        docker tag testapp dlavezzari/webapp:${buildNumber}
+                        docker push dlavezzari/webapp:${buildNumber}
+                        """
+                    }
+                }
+            }
+        }
     }
 }
 
